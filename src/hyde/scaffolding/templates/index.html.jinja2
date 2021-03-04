@@ -1,0 +1,11 @@
+{% extends "base.html.jinja2" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>Welcome</h1>
+
+<h2>Posts</h2>
+{% for i in content %}
+<p><a href="{{ i.path }}">{{ i.title }}</a></p>
+{% endfor %}
+
+{% endblock %}

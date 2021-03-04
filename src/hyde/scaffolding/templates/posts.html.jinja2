@@ -1,0 +1,7 @@
+{% extends "base.html.jinja2" %}
+{% block title %}{{ meta['title'] }}{% endblock %}
+{% block content %}
+<h2>{{ meta['title'] }}</h2>
+<p>By {{ meta['author'] }} on {{ meta['date'] }}</p>
+{{ content }}
+{% endblock %}
