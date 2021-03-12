@@ -67,6 +67,8 @@ class Hyde(object):
                 template = self.jinja2_env.get_template('posts.html.jinja2')
             if c[0]['type'] == 'snippet':
                 template = self.jinja2_env.get_template('posts.html.jinja2')
+            if c[0]['type'] == 'home':
+                template = self.jinja2_env.get_template('home.html.jinja2')
 
             sanitized_title = '-'.join(c[0]['title'].split(' ')).lower()
             html_filename = os.path.join(c[0]['type'], sanitized_title + '.html')
@@ -160,10 +162,14 @@ class Hyde(object):
             output_dir = os.path.join(self.directory, 'output')
             return http.server.SimpleHTTPRequestHandler(*args, **kwargs, directory=output_dir)
 
-        with socketserver.TCPServer(("", port), handler) as httpd:
+        try:
+            httpd = socketserver.TCPServer(("", port), handler)
             print(f"Serving Hyde page at http://127.0.0.1:{port}")
-            print(f"Press Ctrl-C to stop...\n")
+            print(f"Press Ctrl-C to stop...")
             httpd.serve_forever()
+        except KeyboardInterrupt:
+            httpd.shutdown()
+            httpd.server_close()
 
 
 def cli():
