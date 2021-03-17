@@ -35,8 +35,6 @@ class ValidationError(Exception):
 
 class Hyde(object):
     def __init__(self):
-        self.logger = logging.getLogger("hyde")
-
         project_dir = os.getcwd()
 
         self.template_dir = os.path.join(project_dir, TEMPLATE_DIR)
@@ -64,9 +62,9 @@ class Hyde(object):
         )
 
     def __exit(self, msg, exc=None, retval=1):
-        self.logger.error(msg)
+        print(msg)
         if exc is not None:
-            self.logger.error(exc, exc_info=True)
+            print(exc, exc_info=True)
         sys.exit(retval)
 
     def __find_files(self, subdir, filter_fn):
@@ -256,4 +254,4 @@ def cli():
         h = Hyde()
         h.generate()
         s = HydeServer(h.output_dir, h.root_dir, h.generate)
-        s.serve(args.port)
+        s.serve(port=args.port)
