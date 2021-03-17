@@ -10,7 +10,6 @@ import http.server
 import socketserver
 from collections.abc import Callable
 from pathlib import Path
-import os
 
 from watchdog.events import RegexMatchingEventHandler
 from watchdog.observers import Observer
