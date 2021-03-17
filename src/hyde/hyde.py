@@ -3,8 +3,7 @@ import os
 import pathlib
 import shutil
 import sys
-import http.server
-import socketserver
+from pathlib import Path
 
 import yaml
 import jinja2
@@ -35,13 +34,13 @@ class ValidationError(Exception):
 
 class Hyde(object):
     def __init__(self):
-        project_dir = os.getcwd()
+        project_dir = Path(os.getcwd())
 
-        self.template_dir = os.path.join(project_dir, TEMPLATE_DIR)
-        self.content_dir = os.path.join(project_dir, CONTENT_DIR)
-        self.static_dir = os.path.join(project_dir, STATIC_DIR)
-        self.output_dir = os.path.join(project_dir, OUTPUT_DIR)
-        self.config_file_path = os.path.join(project_dir, CONFIG_FILE)
+        self.template_dir = project_dir.joinpath(TEMPLATE_DIR)
+        self.content_dir = project_dir.joinpath(CONTENT_DIR)
+        self.static_dir = project_dir.joinpath(STATIC_DIR)
+        self.output_dir = project_dir.joinpath(OUTPUT_DIR)
+        self.config_file_path = project_dir.joinpath(CONFIG_FILE)
         self.root_dir = project_dir
 
         try:
@@ -61,10 +60,11 @@ class Hyde(object):
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    def __exit(self, msg, exc=None, retval=1):
+    @staticmethod
+    def __exit(msg, exc=None, retval=1):
         print(msg)
         if exc is not None:
-            print(exc, exc_info=True)
+            print(exc)
         sys.exit(retval)
 
     def __find_files(self, subdir, filter_fn):
@@ -83,8 +83,11 @@ class Hyde(object):
 
         content = {}
         for f in files:
-            meta, c = self.__parse_file(f)
-            content[meta["title"]] = [meta, c]
+            try:
+                meta, c = self.__parse_file(f)
+                content[meta["title"]] = [meta, c]
+            except ValueError:
+                print(f"Couldn't parse file '{f}', skipping.")
         return content
 
     def __parse_file(self, c):
@@ -105,24 +108,25 @@ class Hyde(object):
     def __generate_html_pages(self, content):
         """writes html files to output directory"""
         html_pages = []
-        for (title, c) in content.items():
-            if c[0]["type"] == "post":
-                template = self.jinja2_env.get_template("posts.html.jinja2")
-            if c[0]["type"] == "snippet":
-                template = self.jinja2_env.get_template("posts.html.jinja2")
-            if c[0]["type"] == "home":
-                template = self.jinja2_env.get_template("home.html.jinja2")
+        errors = []
 
+        for (title, c) in content.items():
             sanitized_title = "-".join(c[0]["title"].split(" ")).lower()
             html_filename = os.path.join(c[0]["type"], sanitized_title + ".html")
-            html_pages.append(
-                {
-                    "path": html_filename,
-                    "title": c[0]["title"],
-                    "html": template.render(meta=c[0], content=c[1]),
-                }
-            )
-        return html_pages
+            template_file = f"{c[0]['type']}.html.jinja2"
+
+            try:
+                template = self.jinja2_env.get_template(template_file)
+                html_pages.append(
+                    {
+                        "path": html_filename,
+                        "title": c[0]["title"],
+                        "html": template.render(meta=c[0], content=c[1]),
+                    }
+                )
+            except jinja2.exceptions.TemplateNotFound:
+                errors.append(["E", f"Couldn't find template '{template_file}' required to render '{title}'"])
+        return html_pages, errors
 
     def __generate_html_index(self, pages):
         template = self.jinja2_env.get_template("index.html.jinja2")
@@ -154,13 +158,22 @@ class Hyde(object):
 
     def generate(self):
         content = self.__parse_content()
-        pages = self.__generate_html_pages(content)
+        pages, pages_errors = self.__generate_html_pages(content)
         pages = self.__generate_html_index(pages)
         self.__write_html(pages)
         self.__copy_static()
 
+        Hyde.print_errors(pages_errors)
+
     @staticmethod
-    def check(root_dir, template_dir, content_dir, output_dir, config_file_path):
+    def print_errors(errors):
+        print("Hyde ran into errors when generating your website.")
+        for e in errors:
+            print(f"{e[0]}: {e[1]}")
+        print()
+
+    @staticmethod
+    def check(root_dir, template_dir, content_dir, _output_dir, config_file_path):
         checks = []
         if not os.path.isdir(template_dir):
             checks.append(["E", f"project is missing the '{TEMPLATE_DIR}' directory"])
@@ -170,16 +183,16 @@ class Hyde(object):
             checks.append(["E", f"project is missing the '{CONFIG_FILE}' file"])
         else:
             with open(config_file_path) as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
+                project_config = yaml.load(f, Loader=yaml.FullLoader)
             try:
-                if not "site-name" in config.keys():
+                if "site-name" not in project_config.keys():
                     checks.append(
                         [
                             "E",
                             "project configuration file is missing required 'site-name' key",
                         ]
                     )
-                if not "base-url" in config.keys():
+                if "base-url" not in project_config.keys():
                     checks.append(
                         [
                             "E",
@@ -228,30 +241,21 @@ def cli():
         "directory", help="directory to create Hyde website template"
     )
 
-    parser_check = subparsers.add_parser(
-        "check", help="checks if the current directory is a valid Hyde project"
-    )
-    parser_check.add_argument(
-        "-d",
-        "--directory",
-        help="specify a hyde project directory instead of using the current one",
-        default=os.getcwd(),
-    )
-
     parser_serve = subparsers.add_parser("serve", help="serve Hyde website locally")
     parser_serve.add_argument("-p", "--port", help="port to serve on", default=8000)
 
-    parser_gen = subparsers.add_parser("gen", help="generate static html sites")
+    _ = subparsers.add_parser("gen", help="generate static html sites")
 
     args = parser.parse_args()
 
     # determine what subcommand has been called
     if args.subcommand == "new":
         Hyde.new_site(args.directory)
-    if args.subcommand == "check":
-        Hyde.check(args.directory)
     if args.subcommand == "serve":
         h = Hyde()
         h.generate()
         s = HydeServer(h.output_dir, h.root_dir, h.generate)
         s.serve(port=args.port)
+    if args.subcommand == "gen":
+        h = Hyde()
+        h.generate()
