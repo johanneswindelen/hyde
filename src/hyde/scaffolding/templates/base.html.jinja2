@@ -1,17 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    {% block head %}
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/css/style.css" />
     <title>{% block title %}{% endblock %} - LookingForTrees</title>
-    {% endblock %}
+    {% block head %}{% endblock %}
 </head>
 <body>
-    <div id="content">
-        {% block content %}
-        {% endblock %}
+    <div class="wrapper">
+        <div class="sidebar">
+            <ul>
+                <li><a href="/">Home</a></li>
+                {% for p in indices %}
+                <li><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="content">
+            {% block content %}
+            {% endblock %}
+        </div>
     </div>
-    <div id="footer">
+    <div class="footer">
         {% block footer %}
         {% endblock %}
     </div>
