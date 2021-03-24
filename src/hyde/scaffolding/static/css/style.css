@@ -1,0 +1,35 @@
+body {
+    font: 1em Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,serif;
+    color: #f9f0d7;
+    margin: 20px;
+    padding: 0;
+    background-color: #2e2a24;
+}
+.wrapper {
+    max-width: 960px;
+    margin: 2em auto;
+}
+
+@media screen and (min-width: 500px) {
+    .wrapper {
+        display: grid;
+        grid-template-columns: 1fr 3fr;
+        column-gap: 5%;
+    }
+}
+
+a.visited {
+    color: #fefdc2
+}
+
+a {
+    color: #feeec2
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+    color: #ffb472;
+}

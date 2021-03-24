@@ -1,16 +1,18 @@
 import argparse
 import os
-import pathlib
 import shutil
 import sys
+import logging
 from pathlib import Path
 
 import yaml
 import jinja2
-from markdown import markdown
+from anytree import Node, RenderTree, Resolver, LevelOrderIter
 
 from hyde.server import HydeServer
 from hyde import config
+from hyde.pages import HydePage
+from hyde.errors import HydeValidationError, HydeError
 
 
 TEMPLATE_DIR = "templates"
@@ -19,29 +21,21 @@ STATIC_DIR = "static"
 OUTPUT_DIR = "output"
 CONFIG_FILE = "config.yaml"
 
-
-class ValidationError(Exception):
-    """An Exception type that holds a list of validation errors"""
-
-    def __init__(self, message, errors):
-        super().__init__(message)
-        self.errors = errors
-
-    def __str__(self):
-        errors = [f"\t{level}: {err}" for level, err in self.errors]
-        return "\n".join(errors)
+logging.basicConfig()
+logger = logging.getLogger("Hyde")
+logger.setLevel(logging.DEBUG)
 
 
 class Hyde(object):
     def __init__(self):
         project_dir = Path(os.getcwd())
 
-        self.template_dir = project_dir.joinpath(TEMPLATE_DIR)
-        self.content_dir = project_dir.joinpath(CONTENT_DIR)
-        self.static_dir = project_dir.joinpath(STATIC_DIR)
-        self.output_dir = project_dir.joinpath(OUTPUT_DIR)
-        self.config_file_path = project_dir.joinpath(CONFIG_FILE)
-        self.root_dir = project_dir
+        self.template_dir = Path(".").joinpath(TEMPLATE_DIR)
+        self.content_dir = Path(".").joinpath(CONTENT_DIR)
+        self.static_dir = Path(".").joinpath(STATIC_DIR)
+        self.output_dir = Path(".").joinpath(OUTPUT_DIR)
+        self.config_file_path = Path(".").joinpath(CONFIG_FILE)
+        self.root_dir = Path(".")
 
         try:
             Hyde.check(
@@ -51,126 +45,81 @@ class Hyde(object):
                 self.output_dir,
                 self.config_file_path,
             )
-        except ValidationError as e:
-            self.__exit(
-                f"'{project_dir}' does not appear to be a Hyde project.\n{e.errors}"
-            )
+        except HydeValidationError as e:
+            logger.error(f"'{project_dir}' does not appear to be a Hyde project.\n{e.errors}")
+            sys.exit(1)
 
         self.jinja2_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    @staticmethod
-    def __exit(msg, exc=None, retval=1):
-        print(msg)
-        if exc is not None:
-            print(exc)
-        sys.exit(retval)
+    def __build_site_tree(self, content_dir) -> Node:
+        root = Node(content_dir)
+        r = Resolver("name")
+        for base, dirs, files in os.walk(content_dir):
+            parent = r.get(root, "/" + base)
+            for d in dirs:
+                directory = Path(base).joinpath(d)
+                html_path = Path(*list(directory.parts[1:])).joinpath("index.html")
+                _ = Node(d, parent=parent, data=HydePage.from_dir(directory, html_path))
+            for f in filter(lambda x: x.endswith(".md"), files):
+                content_file = Path(base).joinpath(f)
+                html_path = Path(*list(content_file.parts[1:])).with_suffix(".html")
+                _ = Node(f, parent=parent, data=HydePage.from_file(content_file, html_path))
+        logger.info(RenderTree(root))
+        return root
 
-    def __find_files(self, subdir, filter_fn):
-        """find files that match the given filter function in subdir"""
-        search_dir = os.path.join(self.root_dir, subdir)
-        matches = []
-        for dirpath, dirnames, files in os.walk(search_dir):
-            for f in files:
-                if filter_fn(f):
-                    matches.append(os.path.join(dirpath, f))
-        return matches
-
-    def __parse_content(self):
-        """validates hyde content for correctness"""
-        files = self.__find_files("content", lambda x: x.endswith(".md"))
-
-        content = {}
-        for f in files:
-            try:
-                meta, c = self.__parse_file(f)
-                content[meta["title"]] = [meta, c]
-            except ValueError:
-                print(f"Couldn't parse file '{f}', skipping.")
-        return content
-
-    def __parse_file(self, c):
-        with open(c, "r") as f:
-            text = f.read()
-
-        header, body = text.split("---")[0:2]
-
-        meta = yaml.load(header, Loader=yaml.FullLoader)
-
-        if not all(k in meta for k in ["author", "date", "draft", "type", "title"]):
-            raise Exception("Missing metadata key in header!")
-
-        content = markdown(body)
-
-        return meta, content
-
-    def __generate_html_pages(self, content):
-        """writes html files to output directory"""
-        html_pages = []
-        errors = []
-
-        for (title, c) in content.items():
-            sanitized_title = "-".join(c[0]["title"].split(" ")).lower()
-            html_filename = os.path.join(c[0]["type"], sanitized_title + ".html")
-            template_file = f"{c[0]['type']}.html.jinja2"
-
-            try:
-                template = self.jinja2_env.get_template(template_file)
-                html_pages.append(
-                    {
-                        "path": html_filename,
-                        "title": c[0]["title"],
-                        "html": template.render(meta=c[0], content=c[1]),
-                    }
-                )
-            except jinja2.exceptions.TemplateNotFound:
-                errors.append(["E", f"Couldn't find template '{template_file}' required to render '{title}'"])
-        return html_pages, errors
-
-    def __generate_html_index(self, pages):
-        template = self.jinja2_env.get_template("index.html.jinja2")
-        content = []
-        for p in pages:
-            content.append({"title": p["title"], "path": p["path"]})
-
-        pages.append(
-            {
-                "path": "index.html",
-                "title": "Home",
-                "html": template.render(title="Index", content=content),
-            }
-        )
-
-        return pages
-
-    def __write_html(self, pages):
-        # generate content pages
-        for p in pages:
-            html_path = os.path.join(self.output_dir, p["path"])
-            os.makedirs(pathlib.Path(html_path).parent.absolute(), exist_ok=True)
-            with open(html_path, "w") as f:
-                f.write(p["html"])
+    def __validate_tree(self, tree):
+        pass
 
     def __copy_static(self):
-        dest_dir = os.path.join(self.output_dir, "static")
+        dest_dir = self.output_dir.joinpath(STATIC_DIR)
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)
 
     def generate(self):
-        content = self.__parse_content()
-        pages, pages_errors = self.__generate_html_pages(content)
-        pages = self.__generate_html_index(pages)
-        self.__write_html(pages)
-        self.__copy_static()
+        if self.output_dir.exists():
+            shutil.rmtree(self.output_dir)
 
-        Hyde.print_errors(pages_errors)
+        tree = self.__build_site_tree(self.content_dir)
+        self.__validate_tree(tree)
+        indices = [p.data for p in LevelOrderIter(tree)
+                   if not p.is_root and p.data.meta.type == "index"]
+
+        for n in LevelOrderIter(tree, filter_=lambda node: not node.is_root):
+            page = n.data
+            try:
+                template_args = {
+                    "page": page,
+                    "indices": indices
+                }
+                if n.children:
+                    template_args["children"] = [c.data for c in n.children]
+                print(f"{page} -> {template_args}")
+                rendered_page = page.render_html(self.jinja2_env, template_args)
+            except jinja2.exceptions.TemplateNotFound:
+                logger.error(f"E: Couldn't find template '{page.template_file}' "
+                             f"required to render '{page}'")
+                sys.exit(1)
+            except jinja2.exceptions.UndefinedError as e:
+                logger.error(f"Missing template argument for node '{n.name}', "
+                             f"template '{page.template_file}':\n{e}")
+                sys.exit(1)
+
+            path = self.output_dir.joinpath(page.html_path)
+            print(f"writing {page} to {path}")
+
+            os.makedirs(path.parent, exist_ok=True)
+
+            with open(path, "w") as f:
+                f.write(rendered_page)
+
+        self.__copy_static()
 
     @staticmethod
     def print_errors(errors):
-        print("Hyde ran into errors when generating your website.")
+        logger.error("Hyde ran into errors when generating your website.")
         for e in errors:
-            print(f"{e[0]}: {e[1]}")
-        print()
+            logger.error(f"{e[0]}: {e[1]}")
 
     @staticmethod
     def check(root_dir, template_dir, content_dir, _output_dir, config_file_path):
@@ -205,7 +154,7 @@ class Hyde(object):
                 )
 
         if len(checks) > 0:
-            raise ValidationError(
+            raise HydeValidationError(
                 f"It appears that '{root_dir}' is not a valid Hyde project. The following errors were encountered:",
                 checks,
             )
@@ -215,19 +164,19 @@ class Hyde(object):
         curr_dir = os.getcwd()
         base_path = os.path.join(curr_dir, project_dir, "")
 
-        print(f"Creating a new Hyde project at {base_path}")
+        logger.info(f"Creating a new Hyde project at {base_path}")
 
         # Create directories for new project
         try:
             os.makedirs(base_path)
         except FileExistsError:
-            print(f"There's already a directory at {base_path}. Aborting!")
+            logger.error(f"There's already a directory at {base_path}. Aborting!")
             sys.exit(1)
 
         # Copy template files over
         shutil.copytree(config.SCAFFOLDING_DIR, base_path, dirs_exist_ok=True)
 
-        print(f"Done!")
+        logger.info(f"Done!")
 
 
 def cli():
