@@ -1,16 +1,14 @@
-from hyde import __version__
-from hyde import Hyde
 import unittest
+from unittest import mock
 
-class TestHydeMethods(unittest.TestCase):
-    def test_hyde_find_files(self):
-        with mock.patch('os.walk') as mockwalk:
-            mockwalk.return_value = [
-                ('/foo', ('bar',), ('baz',)),
-                ('/foo/bar', (), ('spam', 'eggs')),
-            ]
-        
-        h = Hyde('.')
-        h.__find_files
+import tempfile
+from pathlib import Path
+from anytree import Node
+
+from hyde.hyde import Hyde
 
 
+class TestHyde(unittest.TestCase):
+    def test_build_site_tree(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Hyde.new_site(tmpdir + "/test")
