@@ -7,4 +7,5 @@ urlstub: index
 ---
 # Welcome
 
-Hello, welcome to your hyde webpage :)
+Hello, welcome to your hyde webpage 😄
+
