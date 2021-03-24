@@ -28,8 +28,6 @@ logger.setLevel(logging.DEBUG)
 
 class Hyde(object):
     def __init__(self):
-        project_dir = Path(os.getcwd())
-
         self.template_dir = Path(".").joinpath(TEMPLATE_DIR)
         self.content_dir = Path(".").joinpath(CONTENT_DIR)
         self.static_dir = Path(".").joinpath(STATIC_DIR)
@@ -37,35 +35,21 @@ class Hyde(object):
         self.config_file_path = Path(".").joinpath(CONFIG_FILE)
         self.root_dir = Path(".")
 
-        try:
-            Hyde.check(
-                self.root_dir,
-                self.template_dir,
-                self.content_dir,
-                self.output_dir,
-                self.config_file_path,
-            )
-        except HydeValidationError as e:
-            logger.error(f"'{project_dir}' does not appear to be a Hyde project.\n{e.errors}")
-            sys.exit(1)
-
         self.jinja2_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    def __build_site_tree(self, content_dir) -> Node:
-        root = Node(content_dir)
+    def __build_site_tree(self) -> Node:
+        root = Node(self.content_dir)
         r = Resolver("name")
-        for base, dirs, files in os.walk(content_dir):
+        for base, dirs, files in os.walk(self.content_dir):
             parent = r.get(root, "/" + base)
             for d in dirs:
                 directory = Path(base).joinpath(d)
-                html_path = Path(*list(directory.parts[1:])).joinpath("index.html")
-                _ = Node(d, parent=parent, data=HydePage.from_dir(directory, html_path))
+                _ = Node(d, parent=parent, data=HydePage.from_dir(directory))
             for f in filter(lambda x: x.endswith(".md"), files):
                 content_file = Path(base).joinpath(f)
-                html_path = Path(*list(content_file.parts[1:])).with_suffix(".html")
-                _ = Node(f, parent=parent, data=HydePage.from_file(content_file, html_path))
+                _ = Node(f, parent=parent, data=HydePage.from_file(content_file))
         logger.info(RenderTree(root))
         return root
 
@@ -77,10 +61,12 @@ class Hyde(object):
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)
 
     def generate(self):
+        self.check()
+
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
 
-        tree = self.__build_site_tree(self.content_dir)
+        tree = self.__build_site_tree()
         self.__validate_tree(tree)
         indices = [p.data for p in LevelOrderIter(tree)
                    if not p.is_root and p.data.meta.type == "index"]
@@ -121,17 +107,16 @@ class Hyde(object):
         for e in errors:
             logger.error(f"{e[0]}: {e[1]}")
 
-    @staticmethod
-    def check(root_dir, template_dir, content_dir, _output_dir, config_file_path):
+    def check(self):
         checks = []
-        if not os.path.isdir(template_dir):
+        if not os.path.isdir(self.template_dir):
             checks.append(["E", f"project is missing the '{TEMPLATE_DIR}' directory"])
-        if not os.path.isdir(content_dir):
+        if not os.path.isdir(self.content_dir):
             checks.append(["E", f"project is missing the '{CONTENT_DIR}' directory"])
-        if not os.path.isfile(config_file_path):
+        if not os.path.isfile(self.config_file_path):
             checks.append(["E", f"project is missing the '{CONFIG_FILE}' file"])
         else:
-            with open(config_file_path) as f:
+            with open(self.config_file_path) as f:
                 project_config = yaml.load(f, Loader=yaml.FullLoader)
             try:
                 if "site-name" not in project_config.keys():
@@ -155,7 +140,7 @@ class Hyde(object):
 
         if len(checks) > 0:
             raise HydeValidationError(
-                f"It appears that '{root_dir}' is not a valid Hyde project. The following errors were encountered:",
+                f"It appears that '{self.root_dir}' is not a valid Hyde project. The following errors were encountered:",
                 checks,
             )
 
