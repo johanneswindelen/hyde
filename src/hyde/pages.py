@@ -15,37 +15,44 @@ logger = logging.getLogger("hyde")
 class Metadata(object):
     title: str
     type: str
-    urlstub: str = "index"
+    urlstub: str
+    is_index: bool = False
     draft: bool = False
     date: date = None
     author: str = None
 
 
-@dataclass(init=False, repr=False)
 class HydePage(object):
-    meta: Metadata
-    html_path: Path
-    url: str
-    content: str = None
-    file_path: Path = None
-    template_file: str = None
-
-    def __init__(self, meta: Metadata, html_path: Path, content: str = None, file_path: Path = None):
+    def __init__(self, meta: Metadata, content: str):
         self.meta = meta
-        self.html_path = html_path
         self.content = content
-        self.file_path = file_path
-        self.url = str("/" / html_path)
-        self.template_file = f"{meta.type}.html.jinja2"
+
+    @property
+    def template_file(self):
+        if self.meta.is_index:
+            return "index.html.jinja2"
+        else:
+            return f"{self.meta.type}.html.jinja2"
+
+    @property
+    def url(self):
+        return str("/" / self.html_path)
+
+    @property
+    def html_path(self):
+        if self.meta.is_index:
+            return Path(f"{self.meta.type}/index.html")
+        else:
+            return Path(f"{self.meta.type}/{self.meta.urlstub}.html")
 
     @classmethod
-    def from_dir(cls, directory: Path, html_path: Path):
+    def from_dir(cls, directory: Path):
         t = directory.stem
-        meta = Metadata(title=t.capitalize(), type="index")
-        return cls(meta, html_path)
+        meta = Metadata(title=t.capitalize(), type="posts", urlstub="index", is_index=True)
+        return cls(meta, None)
 
     @classmethod
-    def from_file(cls, path: Path, html_path: Path):
+    def from_file(cls, path: Path):
         with open(path, "r") as f:
             text = f.read()
         try:
@@ -62,7 +69,7 @@ class HydePage(object):
         except IndexError:
             content = None
 
-        return cls(meta, html_path, content, path)
+        return cls(meta, content)
 
     def render_html(self, jinja2_env, template_kwargs):
         """writes html files to output directory"""
