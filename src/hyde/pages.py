@@ -16,40 +16,32 @@ class Metadata(object):
     title: str
     type: str
     urlstub: str
-    is_index: bool = False
     draft: bool = False
     date: date = None
     author: str = None
 
 
-class HydePage(object):
+class Page(object):
     def __init__(self, meta: Metadata, content: str):
         self.meta = meta
         self.content = content
+        self._html_path = None
 
     @property
     def template_file(self):
-        if self.meta.is_index:
-            return "index.html.jinja2"
-        else:
-            return f"{self.meta.type}.html.jinja2"
-
-    @property
-    def url(self):
-        return str("/" / self.html_path)
+        return f"{self.meta.type}.html.jinja2"
 
     @property
     def html_path(self):
-        if self.meta.is_index:
-            return Path(f"{self.meta.type}/index.html")
-        else:
-            return Path(f"{self.meta.type}/{self.meta.urlstub}.html")
+        return self._html_path
 
-    @classmethod
-    def from_dir(cls, directory: Path):
-        t = directory.stem
-        meta = Metadata(title=t.capitalize(), type="posts", urlstub="index", is_index=True)
-        return cls(meta, None)
+    @property.setter
+    def html_path(self, html_path: Path):
+        self._html_path = html_path
+
+    @property
+    def url(self):
+        return f"{self.meta.urlstub}.html"
 
     @classmethod
     def from_file(cls, path: Path):
@@ -78,4 +70,4 @@ class HydePage(object):
         return rendered_html
 
     def __repr__(self):
-        return f"Hydepage({self.meta.title}, {self.html_path}, {self.template_file})"
+        return f"Page({self.meta.title}, {self.html_path}, {self.template_file})"
