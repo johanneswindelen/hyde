@@ -7,11 +7,11 @@ from pathlib import Path
 
 import yaml
 import jinja2
-from anytree import Node, RenderTree, Resolver, LevelOrderIter
 
 from hyde.server import HydeServer
 from hyde import config
-from hyde.pages import HydePage
+from hyde.pages import Page
+from hyde.paginator import Paginator
 from hyde.errors import HydeValidationError, HydeError
 
 
@@ -39,66 +39,65 @@ class Hyde(object):
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    def __build_site_tree(self) -> Node:
-        root = Node(self.content_dir)
-        r = Resolver("name")
-        for base, dirs, files in os.walk(self.content_dir):
-            parent = r.get(root, "/" + base)
-            for d in dirs:
-                directory = Path(base).joinpath(d)
-                _ = Node(d, parent=parent, data=HydePage.from_dir(directory))
-            for f in filter(lambda x: x.endswith(".md"), files):
-                content_file = Path(base).joinpath(f)
-                _ = Node(f, parent=parent, data=HydePage.from_file(content_file))
-        logger.info(RenderTree(root))
-        return root
-
-    def __validate_tree(self, tree):
-        pass
+    def __find_files(self, subdir, filter_fn):
+        """find files that match the given filter function in subdir"""
+        search_dir = os.path.join(self.root_dir, subdir)
+        matches = []
+        for dirpath, dirnames, files in os.walk(search_dir):
+            for f in files:
+                if filter_fn(f):
+                    matches.append(Path(os.path.join(dirpath, f)))
+        return matches
 
     def __copy_static(self):
         dest_dir = self.output_dir.joinpath(STATIC_DIR)
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)
 
+    def __sort_content_pages(self, content_pages: list[Page]) -> tuple[list[Page], dict[str, list[Page]]]:
+        pass
+
+    def __write_file(self, content: str, path: Path):
+        os.makedirs(path.parent, exist_ok=True)
+        with open(path, "w") as fp:
+            fp.write(content)
+
     def generate(self):
         self.check()
 
+        # remove previous output directory if it exists
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
 
-        tree = self.__build_site_tree()
-        self.__validate_tree(tree)
-        indices = [p.data for p in LevelOrderIter(tree)
-                   if not p.is_root and p.data.meta.type == "index"]
+        # find all content files and instantiate them into Pages
+        content_files = self.__find_files(self.content_dir, lambda x: x.endswith(".md"))
+        content_pages = [Page.from_file(f) for f in content_files]
 
-        for n in LevelOrderIter(tree, filter_=lambda node: not node.is_root):
-            page = n.data
-            try:
-                template_args = {
-                    "page": page,
-                    "indices": indices
-                }
-                if n.children:
-                    template_args["children"] = [c.data for c in n.children]
-                print(f"{page} -> {template_args}")
-                rendered_page = page.render_html(self.jinja2_env, template_args)
-            except jinja2.exceptions.TemplateNotFound:
-                logger.error(f"E: Couldn't find template '{page.template_file}' "
-                             f"required to render '{page}'")
-                sys.exit(1)
-            except jinja2.exceptions.UndefinedError as e:
-                logger.error(f"Missing template argument for node '{n.name}', "
-                             f"template '{page.template_file}':\n{e}")
-                sys.exit(1)
+        # sort content into pages reachable through a paginator (such as blog posts)
+        # and pages available through the website navigation links (about, contact, home)
+        content_pages_for_pagination, content_pages_on_root = self.__sort_content_pages(content_pages)
 
-            path = self.output_dir.joinpath(page.html_path)
-            print(f"writing {page} to {path}")
+        # render pages required for navigation links
+        for page in content_pages_on_root:
+            page.html_path = Path(page.url)
+            page_html = page.render_html(self.jinja2_env)
+            self._write_file(page_html, page.html_path)
 
-            os.makedirs(path.parent, exist_ok=True)
+        # render pages 
+        for content_type, pages in content_pages_for_pagination.items():
+            paginator = Paginator(name=content_type, pages=pages)
 
-            with open(path, "w") as f:
-                f.write(rendered_page)
+            for index in paginator:
+                index_html = index.render_html(self.jinja2_env, paginator)
+                self._write_file(index_html, index.html_path)
 
+                for page in index.pages:
+                    # set the page html_path attribute, as the full path is only
+                    # known once a page has been loaded by a paginator
+                    page.html_path = Path(index.url).joinpath(page.url)
+                    page_html = page.render_html(self.jinja2_env)
+                    self._write_file(page_html, page.html_path)
+
+        # copy static assets
         self.__copy_static()
 
     @staticmethod

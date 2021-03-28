@@ -1,9 +1,16 @@
 {% extends "base.html.jinja2" %}
-{% block title %}{{ meta.title }}{% endblock %}
+{% block title %}{{ index.name }}{% endblock %}
 {% block content %}
-<h2>{{ page.meta.title }}</h2>
+<h2>{{ index.name }}</h2>
 {% for c in children %}
-<p><a href="{{ c.url }}">{{ c.meta.title }}</a></p>
+<p><a href="{{ paginator.url }}{{ c.url }}">{{ c.meta.title }}</a></p>
 {% endfor %}
+{% if paginator.has_next or paginator.has_prev %}
+<div class="paginator">
+    {% if paginator.has_prev %}<a href="{{ paginator.prev.url }}">&lt;</a>{% endif %}
+    {{ index.number }}
+    {% if paginator.has_next %}<a href="{{ paginator.next.url }}">&lt;</a>{% endif %}
+</div>
+{% endif %}
 
 {% endblock %}
