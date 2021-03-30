@@ -1,43 +1,11 @@
 import math
 from itertools import tee, islice, chain
 
-from hyde.pages import Page
-
-class Index(object):
-    def __init__(self, name: str, pages: list[Page], number: int):
-        self._name = name
-        self._items = pages
-        self._number = number
-
-    @property
-    def items(self):
-        return self._items
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def number(self):
-        return self._number
-
-    @property
-    def url(self):
-        return f"{self._name}/index{self._number + 1 if self._number > 0 else ''}.html"
-
-    @property
-    def html_path(self):
-        return Path(self.url)
-
-    def render(self, jinja2_env, paginator):
-        template_name = f"index.html.jinja2"
-        template = jinja2_env.get_template(template_name)
-        rendered_html = template.render(index=self, children=self._items, paginator=paginator)
-        return rendered_html
+from hyde import IndexPage, ContentPage
 
 
 class Paginator(object):
-    def __init__(self, name: str, content: list[Page], items_per_page: int = 10):
+    def __init__(self, name: str, content: list[ContentPage], items_per_page: int = 10):
         self._content = content
         self._items_per_page = items_per_page
         self._name = name
@@ -46,6 +14,10 @@ class Paginator(object):
         self._prev = self._current = self._next = None
         self._indices = self._build_indices()
         self._indices_iters = self._buid_indices_iter()
+
+        # rewrite URLs of member content pages
+        for p in self._content:
+            p.url = f"/{name}{p.url}"
 
     @property
     def number_pages(self):
@@ -73,7 +45,7 @@ class Paginator(object):
 
     @property
     def url(self):
-        return f"{self._name}/"
+        return f"/{self._name}/"
 
     def _build_indices(self):
         indices = []
@@ -82,9 +54,9 @@ class Paginator(object):
             end_index = (index_number + 1) * self._items_per_page
 
             try:
-                index = Index(self._name, self._content[start_index:end_index], index_number)
+                index = IndexPage(self._name, self._content[start_index:end_index], index_number)
             except IndexError:
-                index = Index(self._name, self._content[start_index:], index_number)
+                index = IndexPage(self._name, self._content[start_index:], index_number)
             indices.append(index)
         return indices
 

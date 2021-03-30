@@ -4,16 +4,19 @@ import shutil
 import sys
 import logging
 from pathlib import Path
+from typing import Callable
 
 import yaml
 import jinja2
 
 from hyde.server import HydeServer
-from hyde import config
 from hyde.pages import Page
 from hyde.paginator import Paginator
-from hyde.errors import HydeValidationError, HydeError
+from hyde.errors import HydeError
 
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCAFFOLDING_DIR = os.path.join(ROOT_DIR, "scaffolding")
 
 TEMPLATE_DIR = "templates"
 CONTENT_DIR = "content"
@@ -32,34 +35,71 @@ class Hyde(object):
         self.content_dir = Path(".").joinpath(CONTENT_DIR)
         self.static_dir = Path(".").joinpath(STATIC_DIR)
         self.output_dir = Path(".").joinpath(OUTPUT_DIR)
-        self.config_file_path = Path(".").joinpath(CONFIG_FILE)
+        config_file_path = Path(".").joinpath(CONFIG_FILE)
         self.root_dir = Path(".")
 
         self.jinja2_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    def __find_files(self, subdir, filter_fn):
-        """find files that match the given filter function in subdir"""
-        search_dir = os.path.join(self.root_dir, subdir)
+    def __find_files(self, subdir: Path, filter_fn: Callable[[Path], bool]):
+        """ Find files that match the given filter function in subdir """
+        search_dir = self.root_dir.joinpath(subdir)
         matches = []
         for dirpath, dirnames, files in os.walk(search_dir):
             for f in files:
-                if filter_fn(f):
-                    matches.append(Path(os.path.join(dirpath, f)))
+                if filter_fn(Path(f)):
+                    matches.append(Path(dirpath).joinpath(f))
         return matches
 
     def __copy_static(self):
         dest_dir = self.output_dir.joinpath(STATIC_DIR)
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)
 
-    def __sort_content_pages(self, content_pages: list[Page]) -> tuple[list[Page], dict[str, list[Page]]]:
-        pass
+    def _sort_content_pages(self, content_pages: list[Page]) -> tuple[list[Page], dict[str, list[Page]]]:
+        """ Sort content pages into those that are paginated and those that are not """
+        paginated_content = {}
+        unpaginated_content = []
+
+        for page in content_pages:
+            content_type = page.meta.template
+            if content_type in ["posts", "snippets"]: # FIXME: this should probably be configurable. Need to add a config file
+                try:
+                    paginated_content[content_type].append(page)
+                except (AttributeError, KeyError) as e:
+                    print("error!", e)
+                    paginated_content[content_type] = [page]
+            else:
+                unpaginated_content.append(page)
+        return unpaginated_content, paginated_content
 
     def __write_file(self, content: str, path: Path):
         os.makedirs(path.parent, exist_ok=True)
         with open(path, "w") as fp:
             fp.write(content)
+
+    def _render_content_to_html(self, navbar_pages, paginated_pages) -> list[tuple[str, Path]]:
+        rendered_pages = []
+
+        # All content that's not paginated is accessible via the navigation bar.
+        # Render and write pages required for navigation links.
+        for page in navbar_pages:
+            page_html = page.render(self.jinja2_env, nav_bar_pages=navbar_pages)
+            rendered_pages.append((page_html, page.html_path))
+
+        # Render and write paginated pages 
+        for content_type, pages in paginated_pages.items():
+            paginator = Paginator(name=content_type, content=pages)
+
+            for index in paginator:
+                index_html = index.render(self.jinja2_env, paginator, nav_bar_pages=navbar_pages)
+                rendered_pages.append((index_html, index.html_path))
+
+                for page in index.items:
+                    page_html = page.render(self.jinja2_env, nav_bar_pages=navbar_pages)
+                    rendered_pages.append((page_html, page.html_path))
+                    
+        return rendered_pages
 
     def generate(self):
         self.check()
@@ -68,79 +108,35 @@ class Hyde(object):
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
 
-        # find all content files and instantiate them into Pages
+         # find all content files and instantiate them into Pages
         content_files = self.__find_files(self.content_dir, lambda x: x.endswith(".md"))
         content_pages = [Page.from_file(f) for f in content_files]
 
         # sort content into pages reachable through a paginator (such as blog posts)
         # and pages available through the website navigation links (about, contact, home)
-        content_pages_for_pagination, content_pages_on_root = self.__sort_content_pages(content_pages)
+        paginated_content, navbar_content = self._sort_content_pages(content_pages)
 
-        # render pages required for navigation links
-        for page in content_pages_on_root:
-            page.html_path = Path(page.url)
-            page_html = page.render_html(self.jinja2_env)
-            self._write_file(page_html, page.html_path)
+        # instantiate pages and render HTML
+        rendered_pages = self._render_content_to_html(paginated_content, navbar_content)
 
-        # render pages 
-        for content_type, pages in content_pages_for_pagination.items():
-            paginator = Paginator(name=content_type, pages=pages)
-
-            for index in paginator:
-                index_html = index.render_html(self.jinja2_env, paginator)
-                self._write_file(index_html, index.html_path)
-
-                for page in index.pages:
-                    # set the page html_path attribute, as the full path is only
-                    # known once a page has been loaded by a paginator
-                    page.html_path = Path(index.url).joinpath(page.url)
-                    page_html = page.render_html(self.jinja2_env)
-                    self._write_file(page_html, page.html_path)
+        # write rendered HTML to files
+        for html, html_path in pages:
+            self._write_file(html, html_path)
 
         # copy static assets
         self.__copy_static()
 
-    @staticmethod
-    def print_errors(errors):
-        logger.error("Hyde ran into errors when generating your website.")
-        for e in errors:
-            logger.error(f"{e[0]}: {e[1]}")
-
     def check(self):
         checks = []
         if not os.path.isdir(self.template_dir):
-            checks.append(["E", f"project is missing the '{TEMPLATE_DIR}' directory"])
+            checks.append(f"\tproject is missing the '{TEMPLATE_DIR}' directory")
         if not os.path.isdir(self.content_dir):
-            checks.append(["E", f"project is missing the '{CONTENT_DIR}' directory"])
-        if not os.path.isfile(self.config_file_path):
-            checks.append(["E", f"project is missing the '{CONFIG_FILE}' file"])
-        else:
-            with open(self.config_file_path) as f:
-                project_config = yaml.load(f, Loader=yaml.FullLoader)
-            try:
-                if "site-name" not in project_config.keys():
-                    checks.append(
-                        [
-                            "E",
-                            "project configuration file is missing required 'site-name' key",
-                        ]
-                    )
-                if "base-url" not in project_config.keys():
-                    checks.append(
-                        [
-                            "E",
-                            "project configuration file is missing required 'base-url' key",
-                        ]
-                    )
-            except AttributeError:
-                checks.append(
-                    ["E", "the project configuration file appears to be invalid YAML."]
-                )
-
+            checks.append(f"\tproject is missing the '{CONTENT_DIR}' directory")
+        
         if len(checks) > 0:
-            raise HydeValidationError(
+            raise HydeError(
                 f"It appears that '{self.root_dir}' is not a valid Hyde project. The following errors were encountered:",
-                checks,
+                "\n".join(checks),
             )
 
     @staticmethod
@@ -158,7 +154,7 @@ class Hyde(object):
             sys.exit(1)
 
         # Copy template files over
-        shutil.copytree(config.SCAFFOLDING_DIR, base_path, dirs_exist_ok=True)
+        shutil.copytree(SCAFFOLDING_DIR, base_path, dirs_exist_ok=True)
 
         logger.info(f"Done!")
 

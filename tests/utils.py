@@ -2,7 +2,7 @@ from pathlib import Path
 import jinja2
 
 from unittest import mock
-from hyde.pages import Page
+from hyde.pages import ContentPage
 
 def get_jinja2_env():
     return jinja2.Environment(
@@ -11,7 +11,35 @@ def get_jinja2_env():
 
 def page_from_file_str(test_file: str):
     with mock.patch('hyde.pages.open', mock.mock_open(read_data=test_file["content"])) as m:
-        return Page.from_file(test_file["file_path"])
+        return ContentPage.from_file(test_file["file_path"])
+
+def assert_expected_hrefs_in_soup(soup, expected):
+    links = [a.get("href") for a in soup.find_all('a')]
+    for expected_href in expected:
+        assert expected_href in links
+
+def assert_expected_a_texts_in_soup(soup, expected):
+    titles = [a.string for a in soup.find_all('a')]
+    for expected_title in expected:
+        assert expected_title in titles
+
+TEST_NAV_BAR_FILES = [
+    {
+        "file_path": Path("content/index.md"),
+        "content": """
+author: Hyde
+draft: False
+date: 2021-03-01
+template: home
+title: Homepage
+urlstub: index
+---
+# Welcome to hyde
+        """
+    }
+]
+
+nav_bar_pages = [page_from_file_str(p) for p in TEST_NAV_BAR_FILES]
 
 TEST_PAGE_FILES = [
     {
@@ -20,7 +48,7 @@ TEST_PAGE_FILES = [
 author: Hyde
 draft: False
 date: 2021-03-01
-type: posts
+template: posts
 title: Test post
 urlstub: test-title-stub
 ---
@@ -36,7 +64,7 @@ How are you today?
 author: Hyde
 draft: False
 date: 2021-03-02
-type: posts
+template: posts
 title: Test post 2
 urlstub: test-post-2
 ---
@@ -52,7 +80,7 @@ How are you today?
 author: Hyde
 draft: False
 date: 2021-03-02
-type: posts
+template: posts
 title: Test post 3
 urlstub: test-post-3
 ---
