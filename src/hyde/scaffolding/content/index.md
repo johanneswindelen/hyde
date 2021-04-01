@@ -1,7 +1,7 @@
 author: Johannes
 draft: False
 date: 2021-03-01
-type: home
+template: home
 title: Home
 urlstub: index
 ---
