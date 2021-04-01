@@ -10,7 +10,7 @@ import yaml
 import jinja2
 
 from hyde.server import HydeServer
-from hyde.pages import Page
+from hyde.pages import ContentPage, Page
 from hyde.paginator import Paginator
 from hyde.errors import HydeError
 
@@ -42,7 +42,7 @@ class Hyde(object):
             loader=jinja2.FileSystemLoader(self.template_dir),
         )
 
-    def __find_files(self, subdir: Path, filter_fn: Callable[[Path], bool]):
+    def _find_files(self, subdir: Path, filter_fn: Callable[[Path], bool]):
         """ Find files that match the given filter function in subdir """
         search_dir = self.root_dir.joinpath(subdir)
         matches = []
@@ -67,13 +67,12 @@ class Hyde(object):
                 try:
                     paginated_content[content_type].append(page)
                 except (AttributeError, KeyError) as e:
-                    print("error!", e)
                     paginated_content[content_type] = [page]
             else:
                 unpaginated_content.append(page)
         return unpaginated_content, paginated_content
 
-    def __write_file(self, content: str, path: Path):
+    def _write_content_to_file(self, content: str, path: Path):
         os.makedirs(path.parent, exist_ok=True)
         with open(path, "w") as fp:
             fp.write(content)
@@ -109,8 +108,8 @@ class Hyde(object):
             shutil.rmtree(self.output_dir)
 
          # find all content files and instantiate them into Pages
-        content_files = self.__find_files(self.content_dir, lambda x: x.endswith(".md"))
-        content_pages = [Page.from_file(f) for f in content_files]
+        content_files = self._find_files(self.content_dir, lambda x: x.suffix == ".md")
+        content_pages = [ContentPage.from_file(f) for f in content_files]
 
         # sort content into pages reachable through a paginator (such as blog posts)
         # and pages available through the website navigation links (about, contact, home)
@@ -120,8 +119,9 @@ class Hyde(object):
         rendered_pages = self._render_content_to_html(paginated_content, navbar_content)
 
         # write rendered HTML to files
-        for html, html_path in pages:
-            self._write_file(html, html_path)
+        for html, html_path in rendered_pages:
+            html_path = self.output_dir / html_path
+            self._write_content_to_file(html, html_path)
 
         # copy static assets
         self.__copy_static()
