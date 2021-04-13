@@ -1,32 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <link rel="stylesheet" href="/static/css/style.css" />
     <title>{% block title %}{% endblock %} - LookingForTrees</title>
     {% block head %}{% endblock %}
 </head>
 <body>
-    <div class="wrapper">
-        <div class="sidebar">
-            <ul>
+    <header role="banner">
+        <nav role="navigation">
+            <ul class="navbar">
                 {% for p in nav_bar_pages %}
-                <li><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
+                <li class="navbar"><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
                 {% endfor %}
-                -
                 {% for p in indices %}
-                <li><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
+                <li class="navbar"><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
                 {% endfor %}
             </ul>
-        </div>
-        <div class="content">
-            {% block content %}
-            {% endblock %}
-        </div>
-    </div>
-    <div class="footer">
+        </nav>
+    </header>
+    <main>
+        <article class="post">
+        {% block content %}
+        {% endblock %}
+        </article>
+    </main>
+    <footer>
         {% block footer %}
         {% endblock %}
-    </div>
+    </footer>
 </body>
 </html>
 
