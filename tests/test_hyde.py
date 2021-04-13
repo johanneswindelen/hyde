@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from pathlib import Path
+from bs4 import BeautifulSoup
 
 from hyde import Hyde
 from .utils import *
@@ -30,4 +31,8 @@ class TestHyde(unittest.TestCase):
         h.jinja2_env = get_jinja2_env()
 
         rendered_html = h._render_content_to_html(non_paged, paged)
+        print(rendered_html) # FIXME
+        soup = BeautifulSoup(rendered_html, features="html.parser")
+
+        assert_expected_hrefs_in_soup(soup, ["/posts/index.html"])
         

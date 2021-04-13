@@ -5,6 +5,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import Callable
+import copy
 
 import yaml
 import jinja2
@@ -77,12 +78,20 @@ class Hyde(object):
         with open(path, "w") as fp:
             fp.write(content)
 
-    def _render_content_to_html(self, navbar_pages, paginated_pages) -> list[tuple[str, Path]]:
+    def _render_content_to_html(self, single_pages, paginated_pages) -> list[tuple[str, Path]]:
         rendered_pages = []
+
+        # Build navbar links
+        navbar_pages = copy.deepcopy(single_pages)
+
+        for content_type, pages in paginated_pages.items():
+            paginator = Paginator(name=content_type, content=pages)
+            index = next(paginator)
+            navbar_pages.append(index)
 
         # All content that's not paginated is accessible via the navigation bar.
         # Render and write pages required for navigation links.
-        for page in navbar_pages:
+        for page in single_pages:
             page_html = page.render(self.jinja2_env, nav_bar_pages=navbar_pages)
             rendered_pages.append((page_html, page.html_path))
 
@@ -113,10 +122,10 @@ class Hyde(object):
 
         # sort content into pages reachable through a paginator (such as blog posts)
         # and pages available through the website navigation links (about, contact, home)
-        paginated_content, navbar_content = self._sort_content_pages(content_pages)
+        navbar_content, paginated_content = self._sort_content_pages(content_pages)
 
         # instantiate pages and render HTML
-        rendered_pages = self._render_content_to_html(paginated_content, navbar_content)
+        rendered_pages = self._render_content_to_html(navbar_content, paginated_content)
 
         # write rendered HTML to files
         for html, html_path in rendered_pages:
