@@ -36,6 +36,19 @@ urlstub: index
 ---
 # Welcome to hyde
         """
+    },
+    {
+        "file_path": Path("content/about.md"),
+        "content": """
+author: Hyde
+draft: False
+date: 2021-03-01
+template: home
+title: About me
+urlstub: about
+---
+# Welcome to the about me page!
+        """
     }
 ]
 
