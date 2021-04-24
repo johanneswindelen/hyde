@@ -78,3 +78,11 @@ class PaginatorTests(unittest.TestCase):
         soup = self.souped_index(paginator)
 
         assert_expected_hrefs_in_soup(soup, ["/index.html"])
+
+    def test_paginator_should_not_have_side_effects_on_content(self):
+        paginator = Paginator(name="posts", content=self.pages, items_per_page=10)
+        paginator = Paginator(name="posts", content=self.pages, items_per_page=10)
+        soup = self.souped_index(paginator)
+
+        assert_expected_hrefs_in_soup(soup, ["/posts/test-title-stub.html", "/posts/test-post-2.html", "/posts/test-post-3.html"])
+        assert_expected_a_texts_in_soup(soup, ["Test post", "Test post 2", "Test post 3"])

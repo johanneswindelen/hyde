@@ -93,7 +93,7 @@ class Hyde(object):
         # Render and write pages required for navigation links.
         for page in single_pages:
             page_html = page.render(self.jinja2_env, nav_bar_pages=navbar_pages)
-            rendered_pages.append((page_html, page.html_path))
+            rendered_pages.append((page, page_html, page.html_path))
 
         # Render and write paginated pages 
         for content_type, pages in paginated_pages.items():
@@ -101,12 +101,16 @@ class Hyde(object):
 
             for index in paginator:
                 index_html = index.render(self.jinja2_env, paginator, nav_bar_pages=navbar_pages)
-                rendered_pages.append((index_html, index.html_path))
+                rendered_pages.append((index, index_html, index.html_path))
 
                 for page in index.items:
                     page_html = page.render(self.jinja2_env, nav_bar_pages=navbar_pages)
-                    rendered_pages.append((page_html, page.html_path))
-                    
+                    rendered_pages.append((page, page_html, page.html_path))
+        
+        logger.debug(f"Rendered a total of {len(rendered_pages)} pages.")
+        for p in rendered_pages:
+            logger.debug(f"\t{p[0]}")
+
         return rendered_pages
 
     def generate(self):
@@ -128,7 +132,7 @@ class Hyde(object):
         rendered_pages = self._render_content_to_html(navbar_content, paginated_content)
 
         # write rendered HTML to files
-        for html, html_path in rendered_pages:
+        for _, html, html_path in rendered_pages:
             html_path = self.output_dir / html_path
             self._write_content_to_file(html, html_path)
 

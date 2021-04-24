@@ -32,7 +32,7 @@ class TestHyde(unittest.TestCase):
         h.jinja2_env = get_jinja2_env()
 
         # take any website, it should contain the navbar links
-        rendered_html, _ = h._render_content_to_html(non_paged, paged)[0]
+        _, rendered_html, _ = h._render_content_to_html(non_paged, paged)[0]
         soup = BeautifulSoup(rendered_html, features="html.parser")
 
         assert_expected_hrefs_in_soup(soup, ["/posts/index.html", "/index.html", "/about.html"])

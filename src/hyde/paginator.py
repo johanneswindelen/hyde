@@ -1,12 +1,13 @@
 import math
 from itertools import tee, islice, chain
+import copy
 
 from hyde import IndexPage, ContentPage
 
 
 class Paginator(object):
     def __init__(self, name: str, content: list[ContentPage], items_per_page: int = 10):
-        self._content = content
+        self._content = copy.deepcopy(content)
         self._items_per_page = items_per_page
         self._name = name
 
