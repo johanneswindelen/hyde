@@ -10,12 +10,12 @@ from .utils import *
 
 class TestContentPage(unittest.TestCase):
     def setUp(self) -> None:
-        self.m_post = Metadata("test title", "posts", "test-title-stub")
+        self.m_post = Metadata("test title", "test-title-stub")
 
     def test_page_init(self):
         p = ContentPage(self.m_post, None)
         self.assertEqual(p.content, None)
-        self.assertEqual(p.template_file, "posts.html.jinja2")
+        self.assertEqual(p.template_file, "post.html.jinja2")
         self.assertEqual(p.url, "/test-title-stub.html")
 
     def test_page_from_file(self):
@@ -23,12 +23,13 @@ class TestContentPage(unittest.TestCase):
         p = page_from_file_str(test_file)
 
         self.assertEqual(p.meta.title, "Test post")
-        self.assertEqual(p.meta.template, "posts")
+        self.assertEqual(p.meta.template, "post")
+        self.assertEqual(p.meta.content_group, "posts")
         self.assertEqual(p.meta.date, datetime.date(year=2021, month=3, day=1))
         self.assertEqual(p.meta.author, "Hyde")
         self.assertEqual(p.meta.urlstub, "test-title-stub")
         self.assertEqual(p.content, test_file["html"])
-        self.assertEqual(p.template_file, "posts.html.jinja2")
+        self.assertEqual(p.template_file, "post.html.jinja2")
         self.assertEqual(p.url, "/test-title-stub.html")
 
     def test_page_render_has_navbar(self):

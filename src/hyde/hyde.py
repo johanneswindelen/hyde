@@ -63,12 +63,11 @@ class Hyde(object):
         unpaginated_content = []
 
         for page in content_pages:
-            content_type = page.meta.template
-            if content_type in ["posts", "snippets"]: # FIXME: this should probably be configurable. Need to add a config file
+            if (paginator := page.meta.content_group) is not None:
                 try:
-                    paginated_content[content_type].append(page)
+                    paginated_content[paginator].append(page)
                 except (AttributeError, KeyError) as e:
-                    paginated_content[content_type] = [page]
+                    paginated_content[paginator] = [page]
             else:
                 unpaginated_content.append(page)
         return unpaginated_content, paginated_content
@@ -122,7 +121,7 @@ class Hyde(object):
 
          # find all content files and instantiate them into Pages
         content_files = self._find_files(self.content_dir, lambda x: x.suffix == ".md")
-        content_pages = [ContentPage.from_file(f) for f in content_files]
+        content_pages = [ContentPage.from_file(f, self.content_dir) for f in content_files]
 
         # sort content into pages reachable through a paginator (such as blog posts)
         # and pages available through the website navigation links (about, contact, home)

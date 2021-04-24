@@ -14,8 +14,9 @@ logger = logging.getLogger("hyde")
 @dataclass
 class Metadata(object):
     title: str
-    template: str = "default"
-    urlstub: str = ""
+    urlstub: str
+    content_group: str = None
+    template: str = "post"
     draft: bool = False
     date: date = None
     author: str = None
@@ -55,15 +56,23 @@ class ContentPage(Page):
         self.content = content
 
     @classmethod
-    def from_file(cls, path: Path):
+    def from_file(cls, path: Path, root: Path):
         with open(path, "r") as f:
             text = f.read()
+
+        parent = path.relative_to(root).parent
+        if len(parent.parts) > 1:
+            logger.error(f"Hyde doesn't support nested content!")
+            logger.error(f"Couldn't parse content file '{path}'")
+            sys.exit(1)
+        content_group = None if parent == Path('.') else parent.name
+        
         try:
             meta = yaml.load(text.split(METADATA_SEP)[0], Loader=yaml.FullLoader)
-            meta = Metadata(**meta)
+            meta = Metadata(**meta, content_group=content_group)
         except Exception as e:
+            logger.error(f"Couldn't parse metadata for '{path}'")
             logger.error(e)
-            logger.warning(f"Couldn't parse metadata for '{path}'")
             sys.exit(1)
 
         try:
@@ -86,7 +95,7 @@ class ContentPage(Page):
 
 class IndexPage(Page):
     def __init__(self, name: str, pages: list[Page], number: int):
-        meta = Metadata(name)
+        meta = Metadata(name, urlstub="index")
         self._items = pages
         self._number = number
         url = f"/{meta.title}/index{self._number + 1 if self._number > 0 else ''}.html"
