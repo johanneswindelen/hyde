@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import unittest
 
 from hyde.pages import Metadata, ContentPage
+from hyde.errors import HydeError
 from .utils import *
 
 
@@ -40,6 +41,13 @@ class TestContentPage(unittest.TestCase):
         soup = BeautifulSoup(html_doc, features="html.parser")
 
         assert_expected_hrefs_in_soup(soup, ["/index.html"])        
+
+    def test_page_path_to_content_file_cannot_be_more_than_one_level_deep(self):
+        test_file = INVALID_PATH_FILE
+
+        with self.assertRaises(SystemExit):
+            page_from_file_str(test_file)
+
 
 if __name__ == '__main__':
     unittest.main()

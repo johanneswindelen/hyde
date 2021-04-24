@@ -54,6 +54,17 @@ urlstub: about
 
 nav_bar_pages = [page_from_file_str(p) for p in TEST_NAV_BAR_FILES]
 
+# only one level of content grouping is allowed using the path!
+INVALID_PATH_FILE =  {
+    "file_path": Path("content/invalid/posts/test_title.md"),
+    "content": """
+title: Invalid Path
+urlstub: invalid-path
+---
+Testing
+"""
+}
+
 TEST_PAGE_FILES = [
     {
     "file_path": Path("content/posts/test_title.md"),
