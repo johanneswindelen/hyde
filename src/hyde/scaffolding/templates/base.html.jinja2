@@ -9,16 +9,7 @@
 <body>
     <header role="banner">
         <h1>LookingForTrees</h1>
-        <nav role="navigation">
-            <ul class="navbar">
-                {% for p in nav_bar_pages %}
-                <li class="navbar"><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
-                {% endfor %}
-                {% for p in indices %}
-                <li class="navbar"><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
-                {% endfor %}
-            </ul>
-        </nav>
+        {{ navbar }}
     </header>
     <main>
         <article class="post">
@@ -27,8 +18,7 @@
         </article>
     </main>
     <footer>
-        {% block footer %}
-        {% endblock %}
+        
     </footer>
 </body>
 </html>

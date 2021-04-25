@@ -52,7 +52,9 @@ urlstub: about
     }
 ]
 
-nav_bar_pages = [page_from_file_str(p) for p in TEST_NAV_BAR_FILES]
+def get_navbar():
+    nav_template = get_jinja2_env().get_template("navbar.html.jinja2")
+    return nav_template.render(nav_bar_pages=[page_from_file_str(p) for p in TEST_NAV_BAR_FILES])
 
 TEST_PAGE_FILES = [
     {

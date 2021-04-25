@@ -52,7 +52,7 @@ class PaginatorTests(unittest.TestCase):
 
     def souped_index(self, paginator):
         index = next(paginator)
-        html_doc = index.render(get_jinja2_env(), paginator, nav_bar_pages=nav_bar_pages)
+        html_doc = index.render(get_jinja2_env(), paginator, navbar=get_navbar())
         return BeautifulSoup(html_doc, features="html.parser")
 
     def test_paginator_render_contains_links(self):

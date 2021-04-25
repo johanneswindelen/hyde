@@ -35,7 +35,7 @@ class TestContentPage(unittest.TestCase):
         test_file = TEST_PAGE_FILES[0]
         p = page_from_file_str(test_file)
 
-        html_doc = p.render(get_jinja2_env(), nav_bar_pages=nav_bar_pages)
+        html_doc = p.render(get_jinja2_env(), navbar=get_navbar())
         soup = BeautifulSoup(html_doc, features="html.parser")
 
         assert_expected_hrefs_in_soup(soup, ["/index.html"])        

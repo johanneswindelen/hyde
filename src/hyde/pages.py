@@ -74,10 +74,10 @@ class ContentPage(Page):
 
         return cls(meta, content)
 
-    def render(self, jinja2_env, nav_bar_pages):
+    def render(self, jinja2_env, navbar):
         """writes html files to output directory"""
         template = jinja2_env.get_template(self.template_file)
-        rendered_html = template.render(page=self, nav_bar_pages=nav_bar_pages)
+        rendered_html = template.render(page=self, navbar=navbar)
         return rendered_html
 
     def __repr__(self):
@@ -100,8 +100,8 @@ class IndexPage(Page):
     def number(self):
         return self._number
 
-    def render(self, jinja2_env, paginator, nav_bar_pages):
+    def render(self, jinja2_env, paginator, navbar):
         template_name = f"index.html.jinja2"
         template = jinja2_env.get_template(template_name)
-        rendered_html = template.render(index=self, children=self._items, paginator=paginator, nav_bar_pages=nav_bar_pages)
+        rendered_html = template.render(index=self, children=self._items, paginator=paginator, navbar=navbar)
         return rendered_html

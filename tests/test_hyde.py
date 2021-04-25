@@ -31,9 +31,19 @@ class TestHyde(unittest.TestCase):
         h = Hyde()
         h.jinja2_env = get_jinja2_env()
 
+        nav_bar = h._render_navbar_html(non_paged, paged)
+
         # take any website, it should contain the navbar links
-        _, rendered_html, _ = h._render_content_to_html(non_paged, paged)[0]
+        _, rendered_html = h._render_content_to_html(non_paged, paged, nav_bar)[0]
         soup = BeautifulSoup(rendered_html, features="html.parser")
 
         assert_expected_hrefs_in_soup(soup, ["/posts/index.html", "/index.html", "/about.html"])
         
+    # def test_hyde_magic_generate_folders_for_private_content(self):
+    #     raise
+
+    # def test_hyde_private_content_available_through_magic_link(self):
+    #     raise
+
+    # def test_hyde_private_content_not_available_without_magic_link(self):
+    #     raise
