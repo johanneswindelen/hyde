@@ -59,12 +59,11 @@ class Hyde(object):
         unpaginated_content = []
 
         for page in content_pages:
-            content_type = page.meta.template
-            if content_type in ["posts", "snippets"]: # FIXME: this should probably be configurable. Need to add a config file
+            if (paginator := page.meta.content_group) is not None:
                 try:
-                    paginated_content[content_type].append(page)
+                    paginated_content[paginator].append(page)
                 except (AttributeError, KeyError) as e:
-                    paginated_content[content_type] = [page]
+                    paginated_content[paginator] = [page]
             else:
                 unpaginated_content.append(page)
         return unpaginated_content, paginated_content
@@ -123,7 +122,7 @@ class Hyde(object):
          # find all content files and instantiate them into Pages
         content_files = self._find_files(self.content_dir, lambda x: x.suffix == ".md")
         media_files = self._find_files(self.content_dir, lambda x: x.suffix in [".jpeg"])
-        content_pages = [ContentPage.from_file(f) for f in content_files]
+        content_pages = [ContentPage.from_file(f, self.content_dir) for f in content_files]
 
         public_content_pages = copy.deepcopy(content_pages)
         public_content_pages = list(filter(lambda x: x.meta.content_group != "_private", public_content_pages))
@@ -131,7 +130,7 @@ class Hyde(object):
 
         self._write_website(public_content_pages, public_media_files)
 
-        for stem in config.magic_links:
+        for stem in ["testing123"]:
             private_content_pages = copy.deepcopy(content_pages)
             for p in private_content_pages:
                 p.url = "/" + stem + p.url

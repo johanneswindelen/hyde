@@ -11,7 +11,7 @@ def get_jinja2_env():
 
 def page_from_file_str(test_file: str):
     with mock.patch('hyde.pages.open', mock.mock_open(read_data=test_file["content"])) as m:
-        return ContentPage.from_file(test_file["file_path"])
+        return ContentPage.from_file(test_file["file_path"], Path("content"))
 
 def assert_expected_hrefs_in_soup(soup, expected):
     links = [a.get("href") for a in soup.find_all('a')]
@@ -56,6 +56,17 @@ def get_navbar():
     nav_template = get_jinja2_env().get_template("navbar.html.jinja2")
     return nav_template.render(nav_bar_pages=[page_from_file_str(p) for p in TEST_NAV_BAR_FILES])
 
+# only one level of content grouping is allowed using the path!
+INVALID_PATH_FILE =  {
+    "file_path": Path("content/invalid/posts/test_title.md"),
+    "content": """
+title: Invalid Path
+urlstub: invalid-path
+---
+Testing
+"""
+}
+
 TEST_PAGE_FILES = [
     {
     "file_path": Path("content/posts/test_title.md"),
@@ -63,7 +74,7 @@ TEST_PAGE_FILES = [
 author: Hyde
 draft: False
 date: 2021-03-01
-template: posts
+template: post
 title: Test post
 urlstub: test-title-stub
 ---
@@ -79,7 +90,6 @@ How are you today?
 author: Hyde
 draft: False
 date: 2021-03-02
-template: posts
 title: Test post 2
 urlstub: test-post-2
 ---
@@ -95,7 +105,6 @@ How are you today?
 author: Hyde
 draft: False
 date: 2021-03-02
-template: posts
 title: Test post 3
 urlstub: test-post-3
 ---
