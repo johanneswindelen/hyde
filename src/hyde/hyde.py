@@ -53,7 +53,7 @@ class Hyde(object):
                     matches.append(Path(dirpath).joinpath(f))
         return matches
 
-    def _sort_content_pages(self, content_pages: list[Page]) -> tuple[list[Page], dict[str, list[Page]]]:
+    def _sort_content(self, content_pages: list[Page]) -> tuple[list[Page], list[Paginator]]:
         """ Sort content pages into those that are paginated and those that are not """
         paginated_content = {}
         unpaginated_content = []
@@ -66,44 +66,38 @@ class Hyde(object):
                     paginated_content[content_group] = [page]
             else:
                 unpaginated_content.append(page)
-        return unpaginated_content, paginated_content
+
+        paginators = []
+        for content_group, pages in paginated_content.items():
+            paginators.append(Paginator(name=content_group, content=pages))
+
+        return unpaginated_content, paginators
 
     def _write_content_to_file(self, content: str, path: Path):
         os.makedirs(path.parent, exist_ok=True)
         with open(path, "w") as fp:
             fp.write(content)
 
-    def _render_navbar_html(self, single_pages, paginated_pages):
-        # Build navbar links
-        navbar_pages = copy.deepcopy(single_pages)
-
-        for content_type, pages in paginated_pages.items():
-            paginator = Paginator(name=content_type, content=pages)
-            index = next(paginator)
-            navbar_pages.append(index)
-
-        nav_template = self.jinja2_env.get_template("navbar.html.jinja2")
-        return nav_template.render(nav_bar_pages=navbar_pages)
-
-    def _render_content_to_html(self, single_pages, paginated_pages, navbar_html) -> list[tuple[str, Path]]:
+    def _render_content_to_html(self, single_pages, paginators) -> list[tuple[str, Path]]:
         rendered_pages = []
 
-        # All content that's not paginated is accessible via the navigation bar.
-        # Render and write pages required for navigation links.
+        nav_bar_pages = single_pages + paginators
+
+        print(nav_bar_pages)
+
+        # Render and write single_pages required for navigation links.
         for page in single_pages:
-            page_html = page.render(self.jinja2_env, navbar=navbar_html)
+            page_html = page.render(self.jinja2_env, navbar=nav_bar_pages)
             rendered_pages.append((page, page_html))
 
         # Render and write paginated pages 
-        for content_type, pages in paginated_pages.items():
-            paginator = Paginator(name=content_type, content=pages)
-
+        for paginator in paginators:
             for index in paginator:
-                index_html = index.render(self.jinja2_env, paginator, navbar=navbar_html)
+                index_html = index.render(self.jinja2_env, paginator, navbar=nav_bar_pages)
                 rendered_pages.append((index, index_html))
 
                 for page in index.items:
-                    page_html = page.render(self.jinja2_env, navbar=navbar_html)
+                    page_html = page.render(self.jinja2_env, navbar=nav_bar_pages)
                     rendered_pages.append((page, page_html))
         
         logger.debug(f"Rendered a total of {len(rendered_pages)} pages.")
@@ -122,42 +116,60 @@ class Hyde(object):
          # find all content files and instantiate them into Pages
         content_files = self._find_files(self.content_dir, lambda x: x.suffix == ".md")
         media_files = self._find_files(self.content_dir, lambda x: x.suffix in [".jpeg"])
-        content_pages = [ContentPage.from_file(f, self.content_dir) for f in content_files]
+        content_pages = [ContentPage.from_file(f) for f in content_files]
+
+        # sort content into pages reachable through a paginator (such as blog posts)
+        # and pages available through the website navigation links (about, contact, home)
+        single_pages, paginators = self._sort_content(content_pages)
+
+        # filter, render and write publicly available website
+        filter_fn = lambda x: "_private" not in x.path
+        self._write_website(single_pages, paginators, filter_fn=filter_fn)
+
+        # add magiclink, render and write privately available website
+        def map_fn(root):
+            def inner(page):
+                page.path = f"{root}/{page.path}"
+                return page
+            return inner
+
+        for stem in ["testing123"]:
+            self._write_website(single_pages, paginators, map_fn=map_fn(stem))
 
         public_content_pages = copy.deepcopy(content_pages)
         public_content_pages = list(filter(lambda x: x.meta.content_group != "_private", public_content_pages))
         public_media_files = list(filter(lambda x: "_private" in x.parts, media_files))
 
-        self._write_website(public_content_pages, public_media_files)
-
-        for stem in ["testing123"]:
-            p_content_pages = self._set_new_content_root(stem, content_pages)
-            self._write_website(p_content_pages, media_files)
-
         # copy static assets
         dest_dir = self.output_dir.joinpath(STATIC_DIR)
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)        
 
-    def _set_new_content_root(self, root, content_pages):
-        n_content_pages = copy.deepcopy(content_pages)
-        for p in n_content_pages:
-            p.url = f"/{root}{p.url}"
-        return n_content_pages
+    def _write_website(self, single_pages, paginators, filter_fn=None, map_fn=None):
+        single_pages = copy.deepcopy(single_pages)
+        paginators = copy.deepcopy(paginators)
 
-    def _write_website(self, content_pages, media_files):
-        # sort content into pages reachable through a paginator (such as blog posts)
-        # and pages available through the website navigation links (about, contact, home)
-        unpaginated_content, paginated_content = self._sort_content_pages(content_pages)
+        # filter pages
+        if filter_fn:
+            single_pages = list(filter(filter_fn, single_pages))
+            paginators = list(filter(filter_fn, paginators))
 
-        # generate navbar snippet
-        navbar_html = self._render_navbar_html(unpaginated_content, paginated_content)
+        print(single_pages)
+        print(paginators)
+
+        # filter paginators
+        if map_fn:
+            single_pages = list(map(map_fn, single_pages))
+            paginators = list(map(map_fn, paginators))
+
+        print(single_pages)
+        print(paginators)
 
         # instantiate pages and render HTML
-        rendered_pages = self._render_content_to_html(unpaginated_content, paginated_content, navbar_html)
+        rendered_pages = self._render_content_to_html(single_pages, paginators)
 
         # write rendered HTML to files
         for page, html in rendered_pages:
-            html_path = self.output_dir / page.html_path
+            html_path = self.output_dir / page.path / page.html_filename
             self._write_content_to_file(html, html_path)
 
         # for src, dst in media_files:

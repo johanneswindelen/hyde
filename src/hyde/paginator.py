@@ -6,7 +6,7 @@ from hyde import IndexPage, ContentPage
 
 
 class Paginator(object):
-    def __init__(self, name: str, content: list[ContentPage], items_per_page: int = 10):
+    def __init__(self, name: str, content: list[ContentPage], items_per_page: int = 10,):
         self._content = content
         self._items_per_page = items_per_page
         self._name = name
@@ -21,8 +21,16 @@ class Paginator(object):
         return self._number_pages
 
     @property
-    def name(self):
+    def path(self):
         return self._name
+
+    @path.setter
+    def path(self, v):
+        self._name = v
+        for i in self._indices:
+            i.path = v
+        for c in self._content:
+            c.path = v
 
     @property
     def has_next(self):
@@ -42,7 +50,11 @@ class Paginator(object):
 
     @property
     def url(self):
-        return f"/{self._name}/"
+        return self._indices[0].url
+
+    @property
+    def meta(self):
+        return self._indices[0].meta
 
     def _build_indices(self):
         indices = []

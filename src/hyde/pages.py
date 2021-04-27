@@ -23,27 +23,32 @@ class Metadata(object):
 
 
 class Page(object):
-    def __init__(self, meta: Metadata, url: str):
+    def __init__(self, meta: Metadata, html_filename: str, path: str = ""):
         self.meta = meta
-        self._url = url
+        self._html_filename = html_filename
+        self.path = path
 
     @property
     def template_file(self):
         return f"{self.meta.template}.html.jinja2"
 
     @property
-    def html_path(self):
-        return Path(self._url.lstrip("/"))
+    def html_filename(self):
+        return Path(self._html_filename)
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, v: str):
+        if len(v) > 0 and not v.endswith("/"):
+            v = v + "/"
+        self._path = v
 
     @property
     def url(self):
-        return self._url
-
-    @url.setter
-    def url(self, v):
-        if not v.startswith("/"):
-            raise HydeError(f"URLs must be absolute, got '{v}'")
-        self._url = v
+        return f"/{self._path}{self._html_filename}"
 
     def render(self, *args):
         raise NotImplementedError("render_html should be implemented in child classes!")
@@ -51,11 +56,10 @@ class Page(object):
 
 class ContentPage(Page):
     def __init__(self, meta: Metadata, content: str):
-        url = f"/{meta.urlstub}.html"
-        if meta.content_group:
-            url = f"/{meta.content_group}{url}"
+        html_filename = f"{meta.urlstub}.html"
+        path = f"{meta.content_group}" if meta.content_group else ""
 
-        super().__init__(meta, url)
+        super().__init__(meta, html_filename, path)
         self.content = content
 
     @classmethod
@@ -93,7 +97,7 @@ class ContentPage(Page):
         return rendered_html
 
     def __repr__(self):
-        return f"Page({self.meta.title}, {self.html_path}, {self.template_file})"
+        return f"Page({self.url}: '{self.meta.title[:20]}' in '{self.meta.content_group}')"
 
 
 class IndexPage(Page):
@@ -101,8 +105,8 @@ class IndexPage(Page):
         meta = Metadata(name, urlstub="index")
         self._items = pages
         self._number = number
-        url = f"/{meta.title}/index{self._number + 1 if self._number > 0 else ''}.html"
-        super().__init__(meta, url)
+        html_filename = f"index{self._number + 1 if self._number > 0 else ''}.html"
+        super().__init__(meta, html_filename, path=name)
 
     @property
     def items(self):
@@ -117,3 +121,6 @@ class IndexPage(Page):
         template = jinja2_env.get_template(template_name)
         rendered_html = template.render(index=self, children=self._items, paginator=paginator, navbar=navbar)
         return rendered_html
+
+    def __repr__(self):
+        return f"IndexPage({self.url} for '{self.meta.title}')"

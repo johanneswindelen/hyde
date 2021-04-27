@@ -23,6 +23,9 @@ def assert_expected_a_texts_in_soup(soup, expected):
     for expected_title in expected:
         assert expected_title in titles
 
+def get_navbar():
+    return [page_from_file_str(p) for p in TEST_NAV_BAR_FILES]
+
 TEST_NAV_BAR_FILES = [
     {
         "file_path": Path("content/index.md"),
@@ -51,10 +54,6 @@ urlstub: about
         """
     }
 ]
-
-def get_navbar():
-    nav_template = get_jinja2_env().get_template("navbar.html.jinja2")
-    return nav_template.render(nav_bar_pages=[page_from_file_str(p) for p in TEST_NAV_BAR_FILES])
 
 # only one level of content grouping is allowed using the path!
 INVALID_PATH_FILE =  {

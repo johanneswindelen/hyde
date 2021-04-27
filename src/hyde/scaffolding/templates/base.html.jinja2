@@ -9,7 +9,13 @@
 <body>
     <header role="banner">
         <h1>LookingForTrees</h1>
-        {{ navbar }}
+        <nav role="navigation">
+            <ul class="navbar">
+                {% for p in navbar %}
+                <li class="navbar"><a href="{{ p.url }}">{{ p.meta.title }}</a></li>
+                {% endfor %}
+            </ul>
+        </nav>
     </header>
     <main>
         <article class="post">
