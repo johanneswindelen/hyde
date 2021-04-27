@@ -17,13 +17,15 @@ class TestHyde(unittest.TestCase):
 
         self.assertEqual(len(non_paged), 2)
         self.assertIn("posts", paged.keys())
-        self.assertEqual(len(paged["posts"]), 3)
+        self.assertEqual(len(paged["posts"]), 2)
+        self.assertEqual(len(paged["_private"]), 1)
         self.assertEqual(non_paged[0].meta.title, "Homepage")
         self.assertEqual(non_paged[1].meta.title, "About me")
-        titles = [p.meta.title for p in paged["posts"]]
-        self.assertIn("Test post", titles)
-        self.assertIn("Test post 2", titles)
-        self.assertIn("Test post 3", titles)
+        posts_titles = [p.meta.title for p in paged["posts"]]
+        private_titles = [p.meta.title for p in paged["_private"]]
+        self.assertIn("Test post", posts_titles)
+        self.assertIn("Test post 2", posts_titles)
+        self.assertIn("Test post 3", private_titles)
 
     def test_hyde_render_content_html_contains_navlinks(self):
         non_paged, paged = Hyde()._sort_content_pages(self.pages)
@@ -39,8 +41,11 @@ class TestHyde(unittest.TestCase):
 
         assert_expected_hrefs_in_soup(soup, ["/posts/index.html", "/index.html", "/about.html"])
         
-    # def test_hyde_magic_generate_folders_for_private_content(self):
-    #     raise
+    def test_hyde_set_new_content_root(self):
+        h = Hyde()
+
+        n_pages = h._set_new_content_root("testing123", self.pages)
+        self.assertEqual(n_pages[0].url, "/testing123/index.html")
 
     # def test_hyde_private_content_available_through_magic_link(self):
     #     raise

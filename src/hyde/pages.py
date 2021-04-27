@@ -52,15 +52,18 @@ class Page(object):
 class ContentPage(Page):
     def __init__(self, meta: Metadata, content: str):
         url = f"/{meta.urlstub}.html"
+        if meta.content_group:
+            url = f"/{meta.content_group}{url}"
+
         super().__init__(meta, url)
         self.content = content
 
     @classmethod
-    def from_file(cls, path: Path, root: Path):
+    def from_file(cls, path: Path):
         with open(path, "r") as f:
             text = f.read()
 
-        parent = path.relative_to(root).parent
+        parent = Path("/".join(path.parts[1:])).parent
         if len(parent.parts) > 1:
             logger.error(f"Hyde doesn't support nested content!")
             logger.error(f"Couldn't parse content file '{path}'")

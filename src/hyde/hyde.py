@@ -59,11 +59,11 @@ class Hyde(object):
         unpaginated_content = []
 
         for page in content_pages:
-            if (paginator := page.meta.content_group) is not None:
+            if (content_group := page.meta.content_group) is not None:
                 try:
-                    paginated_content[paginator].append(page)
+                    paginated_content[content_group].append(page)
                 except (AttributeError, KeyError) as e:
-                    paginated_content[paginator] = [page]
+                    paginated_content[content_group] = [page]
             else:
                 unpaginated_content.append(page)
         return unpaginated_content, paginated_content
@@ -131,15 +131,18 @@ class Hyde(object):
         self._write_website(public_content_pages, public_media_files)
 
         for stem in ["testing123"]:
-            private_content_pages = copy.deepcopy(content_pages)
-            for p in private_content_pages:
-                p.url = "/" + stem + p.url
-            private_media_files = [Path(stem).joinpath(f) for f in media_files]
-            self._write_website(private_content_pages, private_media_files)
+            p_content_pages = self._set_new_content_root(stem, content_pages)
+            self._write_website(p_content_pages, media_files)
 
         # copy static assets
         dest_dir = self.output_dir.joinpath(STATIC_DIR)
         shutil.copytree(self.static_dir, dest_dir, dirs_exist_ok=True)        
+
+    def _set_new_content_root(self, root, content_pages):
+        n_content_pages = copy.deepcopy(content_pages)
+        for p in n_content_pages:
+            p.url = f"/{root}{p.url}"
+        return n_content_pages
 
     def _write_website(self, content_pages, media_files):
         # sort content into pages reachable through a paginator (such as blog posts)
@@ -155,7 +158,7 @@ class Hyde(object):
         # write rendered HTML to files
         for page, html in rendered_pages:
             html_path = self.output_dir / page.html_path
-            self._write_content_to_file(html, page.html_path)
+            self._write_content_to_file(html, html_path)
 
         # for src, dst in media_files:
         #     shutil.copy(src, dst)

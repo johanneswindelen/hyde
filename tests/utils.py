@@ -11,7 +11,7 @@ def get_jinja2_env():
 
 def page_from_file_str(test_file: str):
     with mock.patch('hyde.pages.open', mock.mock_open(read_data=test_file["content"])) as m:
-        return ContentPage.from_file(test_file["file_path"], Path("content"))
+        return ContentPage.from_file(test_file["file_path"])
 
 def assert_expected_hrefs_in_soup(soup, expected):
     links = [a.get("href") for a in soup.find_all('a')]
@@ -100,7 +100,7 @@ How are you today?
     "html": "<h1>Welcome to hyde, again</h1>\n<p>How are you today?</p>",
 },
 {
-    "file_path": Path("content/posts/test_title_3.md"),
+    "file_path": Path("content/_private/test_title_3.md"),
     "content": """
 author: Hyde
 draft: False

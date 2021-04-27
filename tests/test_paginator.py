@@ -26,7 +26,7 @@ class PaginatorTests(unittest.TestCase):
         index = next(paginator)
         self.assertEqual(len(index.items), 1)
         self.assertEqual(index.items[0].meta.title, "Test post 3")
-        self.assertEqual(index.items[0].url, "/posts/test-post-3.html")
+        self.assertEqual(index.items[0].url, "/_private/test-post-3.html")
         self.assertEqual(index.number, 1)
         self.assertEqual(index.url, "/posts/index2.html")
 
@@ -59,7 +59,7 @@ class PaginatorTests(unittest.TestCase):
         paginator = Paginator(name="posts", content=self.pages, items_per_page=10)
         soup = self.souped_index(paginator)
 
-        assert_expected_hrefs_in_soup(soup, ["/posts/test-title-stub.html", "/posts/test-post-2.html", "/posts/test-post-3.html"])
+        assert_expected_hrefs_in_soup(soup, ["/posts/test-title-stub.html", "/posts/test-post-2.html", "/_private/test-post-3.html"])
         assert_expected_a_texts_in_soup(soup, ["Test post", "Test post 2", "Test post 3"])
 
     def test_paginator_render_has_prev_next_links(self):
@@ -84,5 +84,5 @@ class PaginatorTests(unittest.TestCase):
         paginator = Paginator(name="posts", content=self.pages, items_per_page=10)
         soup = self.souped_index(paginator)
 
-        assert_expected_hrefs_in_soup(soup, ["/posts/test-title-stub.html", "/posts/test-post-2.html", "/posts/test-post-3.html"])
+        assert_expected_hrefs_in_soup(soup, ["/posts/test-title-stub.html", "/posts/test-post-2.html", "/_private/test-post-3.html"])
         assert_expected_a_texts_in_soup(soup, ["Test post", "Test post 2", "Test post 3"])

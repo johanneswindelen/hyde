@@ -1,7 +1,7 @@
 author: Hyde
 draft: False
 date: 2021-03-01
-template: posts
+template: post
 title: My first post
 urlstub: my-first-post
 ---

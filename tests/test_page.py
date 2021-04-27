@@ -31,7 +31,7 @@ class TestContentPage(unittest.TestCase):
         self.assertEqual(p.meta.urlstub, "test-title-stub")
         self.assertEqual(p.content, test_file["html"])
         self.assertEqual(p.template_file, "post.html.jinja2")
-        self.assertEqual(p.url, "/test-title-stub.html")
+        self.assertEqual(p.url, "/posts/test-title-stub.html")
 
     def test_page_render_has_navbar(self):
         test_file = TEST_PAGE_FILES[0]

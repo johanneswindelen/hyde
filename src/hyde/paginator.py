@@ -7,7 +7,7 @@ from hyde import IndexPage, ContentPage
 
 class Paginator(object):
     def __init__(self, name: str, content: list[ContentPage], items_per_page: int = 10):
-        self._content = copy.deepcopy(content)
+        self._content = content
         self._items_per_page = items_per_page
         self._name = name
 
@@ -15,10 +15,6 @@ class Paginator(object):
         self._prev = self._current = self._next = None
         self._indices = self._build_indices()
         self._indices_iters = self._buid_indices_iter()
-
-        # rewrite URLs of member content pages
-        for p in self._content:
-            p.url = f"/{name}{p.url}"
 
     @property
     def number_pages(self):
